@@ -1,0 +1,10 @@
+http://www.instructables.com/id/OFFscope-offline-oscilloscope-Arduino-SD-card-fast/?ALLSTEPS
+
+https://forum.arduino.cc/index.php?topic=228549.0
+
+https://github.com/greiman/SdFat
+
+PC SW:
+http://www.pyqtgraph.org/
+
+https://gist.github.com/turbinenreiter/7898985
