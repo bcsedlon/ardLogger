@@ -1,9 +1,26 @@
+// !!! disbale autoreset: take out DTR (pin4) on CH340
+
 #include "Arduino.h"
 
-#define LED0 2
-#define LED1 3
-#define ERROR_LED_PIN 4
-#define BUTTON0 5
+#define OVERRUN_INDICATION false
+
+#define LED0 4  //green
+#define LED1 5  //yellow
+#define LED2 6  //blue
+#define ERROR_LED_PIN 7
+
+#define BUTTON0 3
+
+#define DELAY_PIN A7
+#define DURATION_PIN A6
+
+int _admux, _adcsrb, _adcsra;
+bool bStop = false;
+char ch;
+
+//#include <SoftwareSerial.h>
+//SoftwareSerial BTSerial(8, 9); // RX | TX
+    
 /**
  * This program logs data from the Arduino ADC to a binary file.
  *
@@ -39,18 +56,18 @@
 #include "Interval.h"
 
 
-Interval interval, buttonInterval;
+Interval interval, buttonInterval, durationInterval;
 bool led1;
 int countdown = -1;
 int countdownInit = 10;
-
+unsigned int duration;
 //------------------------------------------------------------------------------
 // Analog pin number list for a sample.  Pins may be in any order and pin
 // numbers may be repeated.
 const uint8_t PIN_LIST[] = {0};
 //------------------------------------------------------------------------------
 // Sample rate in samples per second.
-const float SAMPLE_RATE = 20000;  // Must be 0.25 or greater.
+const float SAMPLE_RATE = 20000;//20000;  // Must be 0.25 or greater.
 
 
 // The interval between samples in seconds, SAMPLE_INTERVAL, may be set to a
@@ -233,6 +250,7 @@ ISR(ADC_vect) {
   }
   // Start ADC
   if (PIN_COUNT > 1) {
+
     ADMUX = adcmux[adcindex];
     ADCSRB = adcsrb[adcindex];
     ADCSRA = adcsra[adcindex];
@@ -609,10 +627,25 @@ void dumpData() {
   Serial.println(F("Type any character to stop"));
   
   Serial.println(F("#D"));  
+  digitalWrite(LED2, HIGH);
   delay(1000);
-  
-  
-  while (!Serial.available() && binFile.read(&buf , 512) == 512) {
+
+  bStop = false;
+  while (!bStop && binFile.read(&buf , 512) == 512) {
+    if (Serial.available()) {
+      ch = Serial.read();
+      if(ch == '?')
+        Serial.println(F("#D"));
+      else if(ch == 's') {
+        //Serial.println(F("stop"));     
+        bStop = true;
+      }
+      //while(Serial.available())
+      //  Serial.read();
+    }
+
+    
+  //while (!Serial.available() && binFile.read(&buf , 512) == 512) {
     if (buf.count == 0) {
       break;
     }
@@ -631,6 +664,7 @@ void dumpData() {
   }
 
   Serial.println(F("#S"));
+  digitalWrite(LED2, LOW);
   Serial.println(F("Done"));
 }
 //------------------------------------------------------------------------------
@@ -638,6 +672,9 @@ void dumpData() {
 // max number of blocks to erase per erase call
 uint32_t const ERASE_SIZE = 262144L;
 void logData() {
+
+  digitalWrite(ERROR_LED_PIN, LOW);
+  
   uint32_t bgnBlock, endBlock;
 
   // Allocate extra buffer space.
@@ -741,6 +778,10 @@ void logData() {
 
   // Start logging interrupts.
   adcStart();
+
+  bStop = false;
+  durationInterval.set((unsigned long)duration*1000);
+  
   while (1) {
     if (fullHead != fullTail) {
       // Get address of block to write.
@@ -761,7 +802,7 @@ void logData() {
       // Add overruns and possibly light LED.
       if (pBlock->overrun) {
         overruns += pBlock->overrun;
-        if (ERROR_LED_PIN >= 0) {
+        if (ERROR_LED_PIN >= 0  && OVERRUN_INDICATION) {
           digitalWrite(ERROR_LED_PIN, HIGH);
         }
       }
@@ -779,9 +820,25 @@ void logData() {
     if (timerError) {
       error("Missed timer event - rate too high");
     }
-    //if (Serial.available()) {
-    if(Serial.available() || !digitalRead(BUTTON0)) {
 
+    
+    if (Serial.available()) {
+      
+      ch = Serial.read();
+      if(ch == '?')
+         Serial.println(F("#R"));
+      else if(ch == 's') {
+        //Serial.println(F("stop"));     
+        bStop = true;
+      }
+      //while(Serial.available())
+      //  Serial.read();
+    }
+    if(durationInterval.expired())
+      bStop = true;
+    if(bStop || digitalRead(BUTTON0)) {
+    //if(Serial.available() || digitalRead(BUTTON0)) {
+      
       //if(!digitalRead(BUTTON0)) {
         //countdown = -1;
         //led1 = false;
@@ -819,7 +876,7 @@ void logData() {
   }
 
   Serial.println(F("#S"));
-  
+/* NO MEMORY  
   Serial.print(F("File renamed: "));
   Serial.println(binName);
   Serial.print(F("Max block write usec: "));
@@ -830,15 +887,76 @@ void logData() {
   Serial.println(count/PIN_COUNT);
   Serial.print(F("Samples/sec: "));
   Serial.println((1000.0/PIN_COUNT)*count/(t1-t0));
+ */ 
   Serial.print(F("Overruns: "));
   Serial.println(overruns);
   Serial.println(F("Done"));
+
+  ADMUX = _admux;
+  ADCSRB = _adcsrb;
+  ADCSRA = _adcsra ;
 }
 //------------------------------------------------------------------------------
 
+/*
+void removeInDir(File dir) {
+  while (true) {
+
+    File entry =  dir.openNextFile();
+    if (! entry) {
+      // no more files
+      break;
+    }
+    Serial.print(entry.name());
+    if (entry.isDirectory()) {
+        removeInDir(entry);
+    } else {
+        if (!sd.remove(entry.name())) {
+          error("Can't remove file.");
+        }
+    }
+    entry.close();
+  }
+  if (!sd.rmdir(dir.name())) {
+    error("Can't remove directory.");
+  }
+}
+*/
+void removeAllFiles() {
+  Serial.println(F("Removing files"));
+  File root;
+  root = sd.open("/");
+  //Serial.println(root);
+  //removeInDir(root);
+  while (true) {
+
+    File entry =  root.openNextFile();
+    if (! entry) {
+      // no more files
+      break;
+    }
+    char filename[16];
+    entry.getName(filename, 16);
+    //Serial.print(entry.getName(filename, 16));
+    //Serial.println(filename);
+    if (entry.isDirectory()) {
+        //removeInDir(entry);
+    } else {
+        //if (!sd.remove(entry.getName())) {
+        if (!sd.remove(filename)) {
+          error("Can't remove file.");
+        }
+    }
+    entry.close();
+  }
+  //Serial.println();
+}
+
 bool led0;
+
 void setup(void) {
   Serial.begin(115200);
+  //Serial.begin(9600);
   //Serial.println(F("\nLOGGER\n"));
 
   if (ERROR_LED_PIN >= 0) {
@@ -850,7 +968,14 @@ void setup(void) {
   pinMode(BUTTON0, INPUT);
   digitalWrite(BUTTON0, HIGH);
 
+  pinMode(A0, INPUT);
+  pinMode(A6, INPUT);
+  pinMode(A7, INPUT);
+  _admux = ADMUX;
+  _adcsrb = ADCSRB;
+  _adcsra= ADCSRA;
 
+  /*
   while(1) {
 
     if (interval.expired()) {
@@ -860,7 +985,7 @@ void setup(void) {
         digitalWrite(LED0, led0);
       //}
     }
-    if(!digitalRead(BUTTON0)) {
+    if(digitalRead(BUTTON0)) {
       break;
     }
      
@@ -873,6 +998,7 @@ void setup(void) {
     //digitalWrite(LED0, LOW);
     //delay(500);
   }
+  */
   delay(1000);
 
   while(Serial.available()){
@@ -902,7 +1028,7 @@ void setup(void) {
       if(Serial.available())
         if(tolower(Serial.read() == 'f'))
           break;
-      if(!digitalRead(BUTTON0))
+      if(digitalRead(BUTTON0))
         break;
     }
     
@@ -924,14 +1050,22 @@ void setup(void) {
 }
 
 //------------------------------------------------------------------------------
-
+#define SAMPLES 16
+double analogRead(int pin, int samples){
+  int result = 0;
+  
+  for(int i=0; i<samples; i++){
+    result += analogRead(pin);
+  }
+  return (double)(result / samples);
+}
 
 void loop(void) {
   // discard any input
   while (Serial.read() >= 0) {}
 
   digitalWrite(LED0, HIGH);
-  
+///* NO MEMORY
   Serial.println();
   Serial.println(F("Type:"));
   Serial.println(F("c - convert file to csv"));
@@ -939,6 +1073,33 @@ void loop(void) {
   Serial.println(F("e - overrun error details"));
   Serial.println(F("r - record ADC data"));
   Serial.println(F("f - format card"));
+  //Serial.println(F("x - delete card"));
+
+  Serial.println();
+  Serial.print(F("Input [V]: "));
+  Serial.println((analogRead(A0, SAMPLES) * 5.0 )/ 1023.0);
+  //Serial.print(F("#INPUT:"));
+ // Serial.println(analogRead(A0, SAMPLES));
+  Serial.println();
+ //*/
+
+
+ // Serial.println(analogRead(DELAY_PIN, SAMPLES));
+  countdownInit = 10 * (pow(2, (0.01 * analogRead(DELAY_PIN, SAMPLES))) - 1);
+  //countdownInit = (analogRead(DELAY_PIN) / 10) * 10;
+  //Serial.println();
+  
+  //Serial.println();
+  Serial.print(F("Delay [s]: "));
+
+  //duration = analogRead(DURATION_PIN, SAMPLES); 
+  duration = (pow(2, (0.01 * analogRead(DURATION_PIN, SAMPLES))) - 0);// * 1000;
+  
+  Serial.println(countdownInit);//analogRead(DELAY_PIN));
+  Serial.print(F("Duration [s]: "));
+  Serial.println(duration);//analogRead(DURATION_PIN, SAMPLES));
+ // Serial.println(analogRead(DURATION_PIN, SAMPLES));
+  
 
   while(!Serial.available()) {
     
@@ -951,10 +1112,15 @@ void loop(void) {
         
         countdown++;
         
-        if(countdown == countdownInit) {
+        
+        
+        if(countdown >= countdownInit) {
           digitalWrite(LED1, HIGH);
           //Serial.println(F("#R"));
+          removeAllFiles();
           logData();
+          //pinMode(A6, INPUT);
+          //pinMode(A7, INPUT);
           //Serial.println(F("#S"));
           digitalWrite(LED1, LOW);
           countdown = -1;
@@ -966,7 +1132,7 @@ void loop(void) {
         
       }
    }
-    if(!digitalRead(BUTTON0) && countdown > 0 && buttonInterval.expired()) {
+    if(digitalRead(BUTTON0) && countdown > 0 && buttonInterval.expired()) {
       countdown = -1;
       led1 = false;
       digitalWrite(LED1, led1);
@@ -974,7 +1140,7 @@ void loop(void) {
       buttonInterval.set(500);
     }
     
-    if(!digitalRead(BUTTON0) && countdown < 0 && buttonInterval.expired()) {
+    if(digitalRead(BUTTON0) && countdown < 0 && buttonInterval.expired()) {
       countdown = 0;
       Serial.print(F("\nStart countdown [s]: "));
       Serial.println(countdownInit);
@@ -1010,7 +1176,10 @@ void loop(void) {
   } else if (c == 'r') {
     digitalWrite(LED1, HIGH);
     //Serial.println(F("#R"));
+    removeAllFiles();
     logData();
+    //pinMode(A6, INPUT);
+    //pinMode(A7, INPUT);
     //Serial.println(F("#S"));
     digitalWrite(LED1, LOW);
   } else if (c == 'f') {
@@ -1020,8 +1189,14 @@ void loop(void) {
     Serial.println(F("#S"));
   } else if (c == '?') {
     Serial.println(F("#LOGGER"));
-  }  
-  else {
+    Serial.print(F("#INPUT="));
+    Serial.println(int(analogRead(A0, SAMPLES)));
+    //Serial.println();
+  /*} else if (c == 'x') {
+    Serial.println(F("#X"));
+    removeAllFiles();
+    Serial.println(F("#S"));*/
+  } else {
     //Serial.println(c, hex);
     //Serial.println(c);
     Serial.println(F("Invalid entry"));

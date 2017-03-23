@@ -8,10 +8,10 @@ Imports System.Runtime.InteropServices
 
 ' Review the values of the assembly attributes
 
-<Assembly: AssemblyTitle("WindowsApplication1")> 
+<Assembly: AssemblyTitle("ArdLogger")> 
 <Assembly: AssemblyDescription("")> 
 <Assembly: AssemblyCompany("IT")> 
-<Assembly: AssemblyProduct("WindowsApplication1")> 
+<Assembly: AssemblyProduct("ArdLogger")> 
 <Assembly: AssemblyCopyright("Copyright © IT 2017")> 
 <Assembly: AssemblyTrademark("")> 
 

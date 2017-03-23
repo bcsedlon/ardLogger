@@ -4,6 +4,8 @@ https://forum.arduino.cc/index.php?topic=228549.0
 
 https://github.com/greiman/SdFat
 
+http://actrl.cz/blog/index.php/2016/arduino-nano-ch340-schematics-and-details/
+
 PC SW:
 http://www.pyqtgraph.org/
 

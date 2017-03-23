@@ -36,6 +36,8 @@ Public Class Form1
 
         TextBox2.Text = Application.StartupPath & "\logger.csv"
 
+        Label7.Text = TextBox5.Text
+
         readThread.Start()
     End Sub
 
@@ -51,6 +53,7 @@ Public Class Form1
     Dim csvTime As Double
     Dim csvTimePrev As Double
     Dim status As Integer
+    Dim value As Double
 
 
     Sub Read()
@@ -60,6 +63,15 @@ Public Class Form1
                     Dim message As String = serialPort.ReadLine()
                     'Console.WriteLine(message)
 
+                    If message.StartsWith("#INPUT=") Then
+                        value = message.Split("=")(1)
+                        value = Math.Round(TextBox3.Text + (TextBox4.Text - TextBox3.Text) * (value / 1023), 2)
+                        TextBox6.Text = value
+
+                        value = message.Split("=")(1)
+                        value = Math.Round(value * 5 / 1023, 2)
+                        TextBox7.Text = value
+                    End If
 
                     If message.StartsWith("#S") Then
                         status = 0
@@ -78,8 +90,11 @@ Public Class Form1
                         If InStr(message, "#S") > 0 Then
                             readThreadToCsv = False
                             sw.Close()
+                        ElseIf InStr(message, "#") Then
+                            RichTextBox1.AppendText(message + vbNewLine + vbNewLine)
+                            RichTextBox1.ScrollToCaret()
                         Else
-                            Dim value As Double
+
                             Integer.TryParse(message, value)
                             value = TextBox3.Text + (TextBox4.Text - TextBox3.Text) * (value / 1023)
 
@@ -101,29 +116,36 @@ Public Class Form1
                     End If
 
                     If message.StartsWith("#R") Then
-                        status = 1
-                        ToolStripStatusLabel3.Text = "MEASURING"
-                        ToolStripStatusLabel1.Text = "-"
-                        csvTime = 0
+                        If status = 0 Then
+                            ToolStripStatusLabel3.Text = "MEASURING"
+                            ToolStripStatusLabel1.Text = "-"
+                            csvTime = 0
 
-                        Button5.Enabled = False
-                        Button7.Enabled = False
-                        Button12.Enabled = False
+                            Button5.Enabled = False
+                            Button7.Enabled = False
+                            Button12.Enabled = False
+                        End If
+                        status = 1
                     End If
                     If message.StartsWith("#D") Then
-                        status = 2
+
 
                         readThreadToCsv = True
-                        csvTime = 0
-                        csvTimePrev = 0
-                        ToolStripStatusLabel1.Text = csvTime & " ms"
+                        If status = 0 Then
+                            csvTime = 0
 
-                        ToolStripStatusLabel3.Text = "READING"
+                            csvTimePrev = 0
+                            ToolStripStatusLabel1.Text = csvTime & " ms"
 
-                        Button5.Enabled = False
-                        Button7.Enabled = False
-                        Button11.Enabled = False
-                        Button12.Enabled = False
+                            ToolStripStatusLabel3.Text = "READING"
+
+                            Button5.Enabled = False
+                            Button7.Enabled = False
+                            Button11.Enabled = False
+                            Button12.Enabled = False
+                        End If
+
+                        status = 2
 
                         'serialPort.ReadLine()
                         'serialPort.ReadLine()
@@ -205,6 +227,7 @@ Public Class Form1
         Button8.Enabled = False
         Button11.Enabled = False
         Button12.Enabled = False
+        Button14.Enabled = False
         ToolStripStatusLabel1.Text = "-"
         ToolStripStatusLabel3.Text = "-"
     End Sub
@@ -220,6 +243,7 @@ Public Class Form1
         Button8.Enabled = True
         Button11.Enabled = True
         Button12.Enabled = True
+        Button14.Enabled = True
         ToolStripStatusLabel1.Text = "-"
     End Sub
 
@@ -230,6 +254,7 @@ Public Class Form1
         ' Allow the user to set the appropriate properties.
         serialPort.PortName = ComboBox1.Text '"COM2" 'SetPortName(_serialPort.PortName)
         serialPort.BaudRate = 115200 'SetPortBaudRate(_serialPort.BaudRate)
+        'serialPort.BaudRate = 9600
         serialPort.Parity = Parity.None 'SetPortParity(_serialPort.Parity)
         serialPort.DataBits = 8 'SetPortDataBits(_serialPort.DataBits)
         serialPort.StopBits = 1 'SetPortStopBits(_serialPort.StopBits)
@@ -325,7 +350,7 @@ Public Class Form1
     Private Sub Button4_Click(sender As Object, e As EventArgs) Handles Button4.Click
         RichTextBox1.Clear()
         Try
-            serialPort.WriteLine("?")
+            serialPort.WriteLine("s")
         Catch ex As Exception
             MsgBox(ex.Message)
         End Try
@@ -410,6 +435,9 @@ Public Class Form1
     End Sub
 
     Sub sendSerial()
+        If CheckBox1.Checked Then
+            RichTextBox1.Clear()
+        End If
         Try
             serialPort.WriteLine(TextBox1.Text)
             RichTextBox1.AppendText(">" & TextBox1.Text & vbNewLine)
@@ -531,6 +559,35 @@ Public Class Form1
         Catch ex As Exception
             MsgBox(ex.Message)
         End Try
+    End Sub
+
+    Private Sub Button13_Click(sender As Object, e As EventArgs) Handles Button13.Click
+        If CheckBox1.Checked Then
+            RichTextBox1.Clear()
+        End If
+        Try
+            serialPort.WriteLine("?")
+        Catch ex As Exception
+            MsgBox(ex.Message)
+        End Try
+    End Sub
+
+    Private Sub Button14_Click(sender As Object, e As EventArgs) Handles Button14.Click
+        RichTextBox1.Clear()
+        Try
+            serialPort.WriteLine("?")
+        Catch ex As Exception
+            MsgBox(ex.Message)
+        End Try
+    End Sub
+
+    Private Sub TextBox5_Leave(sender As Object, e As EventArgs) Handles TextBox5.Leave
+        Label7.Text = TextBox5.Text
+    End Sub
+
+    Private Sub ConsoleToolStripMenuItem_Click(sender As Object, e As EventArgs) Handles ConsoleToolStripMenuItem.Click
+        Panel1.Visible = Not Panel1.Visible
+
     End Sub
 End Class
 
