@@ -54,6 +54,8 @@ Public Class Form1
     Dim csvTimePrev As Double
     Dim status As Integer
     Dim value As Double
+    'Dim bConv As Boolean
+
 
 
     Sub Read()
@@ -62,6 +64,16 @@ Public Class Form1
                 Try
                     Dim message As String = serialPort.ReadLine()
                     'Console.WriteLine(message)
+
+                    If message.StartsWith("#K=") Then
+                        value = message.Split("=")(1)
+                        NumericUpDown1.Value = value
+                    End If
+
+                    If message.StartsWith("#L=") Then
+                        value = message.Split("=")(1)
+                        NumericUpDown2.Value = value
+                    End If
 
                     If message.StartsWith("#INPUT=") Then
                         value = message.Split("=")(1)
@@ -75,7 +87,7 @@ Public Class Form1
 
                     If message.StartsWith("#S") Then
                         status = 0
-                        ToolStripStatusLabel3.Text = "READY"
+                        ToolStripStatusLabel3.Text = "PRIPRAVENO"
                         'ToolStripStatusLabel1.Text = "-"
 
 
@@ -117,7 +129,7 @@ Public Class Form1
 
                     If message.StartsWith("#R") Then
                         If status = 0 Then
-                            ToolStripStatusLabel3.Text = "MEASURING"
+                            ToolStripStatusLabel3.Text = "ZAZNAM"
                             ToolStripStatusLabel1.Text = "-"
                             csvTime = 0
 
@@ -137,7 +149,7 @@ Public Class Form1
                             csvTimePrev = 0
                             ToolStripStatusLabel1.Text = csvTime & " ms"
 
-                            ToolStripStatusLabel3.Text = "READING"
+                            ToolStripStatusLabel3.Text = "PRENOS"
 
                             Button5.Enabled = False
                             Button7.Enabled = False
@@ -160,7 +172,7 @@ Public Class Form1
                         csvTimePrev = 0
                         ToolStripStatusLabel1.Text = csvTime & " ms"
 
-                        ToolStripStatusLabel3.Text = "CONVERTING"
+                        ToolStripStatusLabel3.Text = "KONVERZE"
 
                         Button5.Enabled = False
                         Button7.Enabled = False
@@ -174,13 +186,13 @@ Public Class Form1
 
                     If message.StartsWith("#F") Then
                         status = 3
-                        ToolStripStatusLabel3.Text = "FORMATING"
+                        ToolStripStatusLabel3.Text = "FORMATOVANI"
                         ToolStripStatusLabel1.Text = "-"
                     End If
 
                     If message.StartsWith("#E") Then
                         status = 15
-                        ToolStripStatusLabel3.Text = "FATAL ERROR"
+                        ToolStripStatusLabel3.Text = "CHYBA"
                         ToolStripStatusLabel1.Text = "-"
 
 
@@ -188,13 +200,13 @@ Public Class Form1
                         Button7.Enabled = False
                         Button11.Enabled = False
                         Button12.Enabled = False
-                    Else
-                        ToolStripStatusLabel3.Text = "READY"
+                        'Else
+                        '   ToolStripStatusLabel3.Text = "PRIPRAVENO"
                     End If
 
                     If message.StartsWith("#W") Then
                         status = 15
-                        ToolStripStatusLabel3.Text = "WARNING"
+                        ToolStripStatusLabel3.Text = "VAROVANI"
                         ToolStripStatusLabel1.Text = "-"
 
 
@@ -211,6 +223,7 @@ Public Class Form1
                     readThreadEnable = False
                     disableSerialUi()
                     status = 0
+                    serialPort.Close()
                 End Try
             End If
         End While
@@ -228,6 +241,8 @@ Public Class Form1
         Button11.Enabled = False
         Button12.Enabled = False
         Button14.Enabled = False
+        Button15.Enabled = False
+        Button16.Enabled = False
         ToolStripStatusLabel1.Text = "-"
         ToolStripStatusLabel3.Text = "-"
     End Sub
@@ -244,6 +259,8 @@ Public Class Form1
         Button11.Enabled = True
         Button12.Enabled = True
         Button14.Enabled = True
+        Button15.Enabled = True
+        Button16.Enabled = True
         ToolStripStatusLabel1.Text = "-"
     End Sub
 
@@ -272,7 +289,10 @@ Public Class Form1
             serialPort.Open()
             enableSerialUi()
             readThreadEnable = True
-            ToolStripStatusLabel2.Text = "CONNECTED"
+            ToolStripStatusLabel2.Text = "PRIPOJENO"
+
+            System.Threading.Thread.Sleep(1000)
+            serialPort.WriteLine("?")
 
         Catch ex As Exception
             MsgBox(ex.Message) 'Error: Serial Port read timed out."
@@ -317,7 +337,8 @@ Public Class Form1
         'Button2.Enabled = False
         disableSerialUi()
 
-        ToolStripStatusLabel2.Text = "DISCONNECTED"
+        ToolStripStatusLabel2.Text = "ODPOJENO"
+        ToolStripStatusLabel3.Text = "-"
     End Sub
 
 
@@ -390,7 +411,7 @@ Public Class Form1
 
             RichTextBox1.Clear()
 
-            message = "TIME [ms]; " & TextBox5.Text 'VALUE [" & TextBox5.Text & "]"
+            message = "CAS [ms]; " & TextBox5.Text 'VALUE [" & TextBox5.Text & "]"
             sw.WriteLine(message)
 
             'readThreadToCsv = True
@@ -478,7 +499,7 @@ Public Class Form1
     End Sub
 
     Private Sub Timer1_Tick(sender As Object, e As EventArgs) Handles Timer1.Tick
-        If status = 1 Or status = 3 Then
+        If status = 1 Or status = 3 Or status = 4 Then
             ToolStripStatusLabel1.Text = csvTime & " ms"
             csvTime = csvTime + Timer1.Interval
         End If
@@ -543,6 +564,7 @@ Public Class Form1
     End Sub
     Private Sub OpenToolStripMenuItem_Click(sender As Object, e As EventArgs) Handles OpenToolStripMenuItem.Click
         OpenFileDialog2.Filter = "cfg | *.cfg"
+        OpenFileDialog2.FileName = Application.StartupPath & "\default.cfg"
         If OpenFileDialog2.FileName = "" Then
             OpenFileDialog2.FileName = Application.StartupPath & "\default.cfg"
         End If
@@ -588,6 +610,109 @@ Public Class Form1
     Private Sub ConsoleToolStripMenuItem_Click(sender As Object, e As EventArgs) Handles ConsoleToolStripMenuItem.Click
         Panel1.Visible = Not Panel1.Visible
 
+    End Sub
+
+
+    Private Sub Button15_Click(sender As Object, e As EventArgs) Handles Button15.Click
+        Try
+            serialPort.WriteLine("k" & Chr(NumericUpDown1.Value))
+            Threading.Thread.Sleep(50)
+            serialPort.WriteLine("l" & Chr(NumericUpDown2.Value))
+            Threading.Thread.Sleep(50)
+            serialPort.WriteLine("?")
+        Catch ex As Exception
+            MsgBox(ex.Message)
+        End Try
+    End Sub
+
+
+    Private Sub Button18_Click(sender As Object, e As EventArgs) Handles Button18.Click
+        OpenFileDialog2.FileName = TextBox10.Text
+        OpenFileDialog2.Filter = "bin | *.bin"
+        If OpenFileDialog2.ShowDialog() = System.Windows.Forms.DialogResult.OK Then
+            TextBox10.Text = OpenFileDialog2.FileName
+            TextBox11.Text = Application.StartupPath & "\" + Path.GetFileNameWithoutExtension(TextBox10.Text) & ".csv"
+
+            File.Delete(TextBox11.Text & ".tmp")
+            Process.Start("bintocsv.exe", """" & TextBox10.Text & """ """ & TextBox11.Text & ".tmp""")
+            Threading.Thread.Sleep(1000)
+
+            'Dim time As Double
+            csvTime = 0
+
+            'status = 4
+            'ToolStripStatusLabel3.Text = "SD CONVERTING"
+            'ToolStripStatusLabel1.Text = "-"
+
+            'Dim tempfile = Path.GetTempFileName()
+            Try
+                Using sw = New StreamWriter(TextBox11.Text)
+                    Using MyReader As New Microsoft.VisualBasic.FileIO.TextFieldParser(TextBox11.Text & ".tmp")
+                        MyReader.TextFieldType = Microsoft.VisualBasic.FileIO.FieldType.Delimited
+                        MyReader.Delimiters = New String() {","}
+                        Dim readRow As String()
+                        Dim writeRow(2) As String
+
+                        'head
+                        readRow = MyReader.ReadFields()
+                        readRow = MyReader.ReadFields()
+                        writeRow(0) = "CAS [ms]"
+                        writeRow(1) = TextBox5.Text
+                        sw.WriteLine(String.Join(";", writeRow))
+
+                        While Not MyReader.EndOfData
+                            Try
+                                readRow = MyReader.ReadFields()
+                                If readRow.Count >= 1 Then
+                                    If readRow(0) <> "Overruns" Then
+                                        writeRow(1) = TextBox3.Text + (TextBox4.Text - TextBox3.Text) * (Integer.Parse(readRow(0)) / 1023)
+                                        'Else
+                                        'writeRow(1) = 0
+                                    End If
+                                    writeRow(0) = csvTime
+                                    csvTime = Math.Round(csvTime + 0.05, 2)
+                                    sw.WriteLine(String.Join(";", writeRow))
+                                End If
+
+                            Catch ex As Microsoft.VisualBasic.FileIO.MalformedLineException
+                                MsgBox("Line " & ex.Message & " is invalid.  Skipping")
+                            Catch ex As Exception
+                                MsgBox(ex.Message)
+                                Exit While
+                            End Try
+
+                        End While
+                    End Using
+                End Using
+            Catch ex As Exception
+                MsgBox(ex.Message)
+            End Try
+            'File.Delete(inputFile)
+            'File.Move(tempfile, inputFile)
+            'status = 0
+            'ToolStripStatusLabel3.Text = "SD CONVERTED"
+            'ToolStripStatusLabel1.Text = "-"
+
+        End If
+    End Sub
+
+
+    Private Sub Button17_Click(sender As Object, e As EventArgs) Handles Button17.Click
+        Try
+            System.Diagnostics.Process.Start(TextBox11.Text)
+
+        Catch ex As Exception
+            MsgBox(ex.Message)
+        End Try
+    End Sub
+
+    Private Sub Button16_Click(sender As Object, e As EventArgs) Handles Button16.Click
+        RichTextBox1.Clear()
+        Try
+            serialPort.WriteLine("?")
+        Catch ex As Exception
+            MsgBox(ex.Message)
+        End Try
     End Sub
 End Class
 

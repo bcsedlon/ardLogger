@@ -1,18 +1,22 @@
 // !!! disbale autoreset: take out DTR (pin4) on CH340
 
 #include "Arduino.h"
+#include "EEPROM.h"
+
+#define DELAY_ADDR 0
+#define DURATION_ADDR 4
 
 #define OVERRUN_INDICATION false
 
-#define LED0 4  //green
-#define LED1 5  //yellow
-#define LED2 6  //blue
-#define ERROR_LED_PIN 7
+#define LED0_PIN 4      //green
+#define LED1_PIN 5      //yellow
+#define LED2_PIN 6      //blue
+#define ERROR_LED_PIN 7 //error
 
-#define BUTTON0 3
+#define BUTTON0_PIN 3
 
-#define DELAY_PIN A7
-#define DURATION_PIN A6
+//#define DELAY_PIN A7
+//#define DURATION_PIN A6
 
 int _admux, _adcsrb, _adcsra;
 bool bStop = false;
@@ -307,13 +311,13 @@ void errorFlash(const __FlashStringHelper* msg) {
 void fatalBlink() {
   Serial.println(F("#W"));
   digitalWrite(ERROR_LED_PIN, HIGH);
-  digitalWrite(LED0, LOW);
+  digitalWrite(LED0_PIN, LOW);
 }
 
 void fatalBlink2() {
 
   Serial.println(F("#E"));
-  digitalWrite(LED0, LOW);
+  digitalWrite(LED0_PIN, LOW);
   while (true) {
     if (ERROR_LED_PIN >= 0) {
       digitalWrite(ERROR_LED_PIN, HIGH);
@@ -627,7 +631,7 @@ void dumpData() {
   Serial.println(F("Type any character to stop"));
   
   Serial.println(F("#D"));  
-  digitalWrite(LED2, HIGH);
+  digitalWrite(LED2_PIN, HIGH);
   delay(1000);
 
   bStop = false;
@@ -664,7 +668,7 @@ void dumpData() {
   }
 
   Serial.println(F("#S"));
-  digitalWrite(LED2, LOW);
+  digitalWrite(LED2_PIN, LOW);
   Serial.println(F("Done"));
 }
 //------------------------------------------------------------------------------
@@ -836,7 +840,7 @@ void logData() {
     }
     if(durationInterval.expired())
       bStop = true;
-    if(bStop || digitalRead(BUTTON0)) {
+    if(bStop || digitalRead(BUTTON0_PIN)) {
     //if(Serial.available() || digitalRead(BUTTON0)) {
       
       //if(!digitalRead(BUTTON0)) {
@@ -954,257 +958,6 @@ void removeAllFiles() {
 
 bool led0;
 
-void setup(void) {
-  Serial.begin(115200);
-  //Serial.begin(9600);
-  //Serial.println(F("\nLOGGER\n"));
-
-  if (ERROR_LED_PIN >= 0) {
-    pinMode(ERROR_LED_PIN, OUTPUT);
-  }
-
-  pinMode(LED0, OUTPUT);
-  pinMode(LED1, OUTPUT);
-  pinMode(BUTTON0, INPUT);
-  digitalWrite(BUTTON0, HIGH);
-
-  pinMode(A0, INPUT);
-  pinMode(A6, INPUT);
-  pinMode(A7, INPUT);
-  _admux = ADMUX;
-  _adcsrb = ADCSRB;
-  _adcsra= ADCSRA;
-
-  /*
-  while(1) {
-
-    if (interval.expired()) {
-      interval.set(1000);
-      //if(countdown >= 0) {
-        led0 = !led0;
-        digitalWrite(LED0, led0);
-      //}
-    }
-    if(digitalRead(BUTTON0)) {
-      break;
-    }
-     
-    if(Serial.available()){
-      //Serial.read();
-      break;
-    }
-    //digitalWrite(LED0, HIGH);
-    //delay(500);
-    //digitalWrite(LED0, LOW);
-    //delay(500);
-  }
-  */
-  delay(1000);
-
-  while(Serial.available()){
-      Serial.read();
-  }
-  Serial.println(F("\nLOGGER\n"));
-
-  //digitalWrite(ERROR_LED_PIN, HIGH);
-  //digitalWrite(LED0, HIGH);
-
-  Serial.print(F("FreeRam: "));
-  Serial.println(FreeRam());
-
-  // Read the first sample pin to init the ADC.
-  analogRead(PIN_LIST[0]);
-
-  // initialize file system.
-  if (!sd.begin(SD_CS_PIN, SPI_FULL_SPEED)) {
-    sd.initErrorPrint();
-
-    digitalWrite(ERROR_LED_PIN, HIGH);
-    digitalWrite(LED0, LOW);
-    
-    Serial.println(F("\nf - format card"));
-    
-    while(1) {
-      if(Serial.available())
-        if(tolower(Serial.read() == 'f'))
-          break;
-      if(digitalRead(BUTTON0))
-        break;
-    }
-    
-    digitalWrite(ERROR_LED_PIN, LOW);
-    format();
-   
-    //fatalBlink2();
-    //while(!Serial.available()) {}
-    //  char c = tolower(Serial.read());
-
-    //if (c == 'f') {
-    //  format();
-    //} else {
-    //  Serial.println(F("Invalid entry"));
-    //  fatalBlink();
-    //}
-    //fatalBlink();
-  }
-}
-
-//------------------------------------------------------------------------------
-#define SAMPLES 16
-double analogRead(int pin, int samples){
-  int result = 0;
-  
-  for(int i=0; i<samples; i++){
-    result += analogRead(pin);
-  }
-  return (double)(result / samples);
-}
-
-void loop(void) {
-  // discard any input
-  while (Serial.read() >= 0) {}
-
-  digitalWrite(LED0, HIGH);
-///* NO MEMORY
-  Serial.println();
-  Serial.println(F("Type:"));
-  Serial.println(F("c - convert file to csv"));
-  Serial.println(F("d - dump data to Serial"));
-  Serial.println(F("e - overrun error details"));
-  Serial.println(F("r - record ADC data"));
-  Serial.println(F("f - format card"));
-  //Serial.println(F("x - delete card"));
-
-  Serial.println();
-  Serial.print(F("Input [V]: "));
-  Serial.println((analogRead(A0, SAMPLES) * 5.0 )/ 1023.0);
-  //Serial.print(F("#INPUT:"));
- // Serial.println(analogRead(A0, SAMPLES));
-  Serial.println();
- //*/
-
-
- // Serial.println(analogRead(DELAY_PIN, SAMPLES));
-  countdownInit = 10 * (pow(2, (0.01 * analogRead(DELAY_PIN, SAMPLES))) - 1);
-  //countdownInit = (analogRead(DELAY_PIN) / 10) * 10;
-  //Serial.println();
-  
-  //Serial.println();
-  Serial.print(F("Delay [s]: "));
-
-  //duration = analogRead(DURATION_PIN, SAMPLES); 
-  duration = (pow(2, (0.01 * analogRead(DURATION_PIN, SAMPLES))) - 0);// * 1000;
-  
-  Serial.println(countdownInit);//analogRead(DELAY_PIN));
-  Serial.print(F("Duration [s]: "));
-  Serial.println(duration);//analogRead(DURATION_PIN, SAMPLES));
- // Serial.println(analogRead(DURATION_PIN, SAMPLES));
-  
-
-  while(!Serial.available()) {
-    
-   if (interval.expired()) {
-      interval.set(1000);
-      if(countdown >= 0) {
-        led1 = !led1;
-        digitalWrite(LED1, led1);
-        //Serial.println(led1);
-        
-        countdown++;
-        
-        
-        
-        if(countdown >= countdownInit) {
-          digitalWrite(LED1, HIGH);
-          //Serial.println(F("#R"));
-          removeAllFiles();
-          logData();
-          //pinMode(A6, INPUT);
-          //pinMode(A7, INPUT);
-          //Serial.println(F("#S"));
-          digitalWrite(LED1, LOW);
-          countdown = -1;
-          buttonInterval.set(500);
-          while (Serial.read() >= 0) {}
-          break;
-        }
-    
-        
-      }
-   }
-    if(digitalRead(BUTTON0) && countdown > 0 && buttonInterval.expired()) {
-      countdown = -1;
-      led1 = false;
-      digitalWrite(LED1, led1);
-      Serial.println(F("\nStop countdown"));
-      buttonInterval.set(500);
-    }
-    
-    if(digitalRead(BUTTON0) && countdown < 0 && buttonInterval.expired()) {
-      countdown = 0;
-      Serial.print(F("\nStart countdown [s]: "));
-      Serial.println(countdownInit);
-      led1 = true;
-      digitalWrite(LED1, led1);
-      buttonInterval.set(500);
-      interval.set(1000);
-    }
-   
-  }
-  char c = tolower(Serial.read());
-  //if (ERROR_LED_PIN >= 0) {
-  //  digitalWrite(ERROR_LED_PIN, LOW);
-  //}
-  // Read any extra Serial data.
-  
-
-
-  do {
-     delay(10);
-  } while (Serial.read() >= 0);
-
-  if (c == 'c') {
-    Serial.println(F("#C"));
-    binaryToCsv();
-    Serial.println(F("#S"));
-  } else if (c == 'd') {
-    //Serial.println(F("#D"));
-    dumpData();
-    //Serial.println(F("#S"));
-  } else if (c == 'e') {
-    checkOverrun();
-  } else if (c == 'r') {
-    digitalWrite(LED1, HIGH);
-    //Serial.println(F("#R"));
-    removeAllFiles();
-    logData();
-    //pinMode(A6, INPUT);
-    //pinMode(A7, INPUT);
-    //Serial.println(F("#S"));
-    digitalWrite(LED1, LOW);
-  } else if (c == 'f') {
-    Serial.println(F("#F"));
-    digitalWrite(ERROR_LED_PIN, LOW);
-    format();
-    Serial.println(F("#S"));
-  } else if (c == '?') {
-    Serial.println(F("#LOGGER"));
-    Serial.print(F("#INPUT="));
-    Serial.println(int(analogRead(A0, SAMPLES)));
-    //Serial.println();
-  /*} else if (c == 'x') {
-    Serial.println(F("#X"));
-    removeAllFiles();
-    Serial.println(F("#S"));*/
-  } else {
-    //Serial.println(c, hex);
-    //Serial.println(c);
-    Serial.println(F("Invalid entry"));
-  }
-}
-#else  // __AVR__
-#error This program is only for AVR.
-#endif  // __AVR__
 
 
 
@@ -1759,10 +1512,222 @@ public: void format() {
 };
 
 void format() {
-  digitalWrite(LED0, HIGH);
+  digitalWrite(LED0_PIN, HIGH);
   digitalWrite(ERROR_LED_PIN, HIGH);
   SDFormat sdf;
   sdf.format();  
-  digitalWrite(LED0, LOW);
+  digitalWrite(LED0_PIN, LOW);
   digitalWrite(ERROR_LED_PIN, LOW);
 }
+
+
+void setup(void) {
+  Serial.begin(115200);
+  //Serial.println(F("\nLOGGER\n"));
+
+  pinMode(ERROR_LED_PIN, OUTPUT);
+  pinMode(LED0_PIN, OUTPUT);
+  pinMode(LED1_PIN, OUTPUT);
+  pinMode(BUTTON0_PIN, INPUT);
+  digitalWrite(BUTTON0_PIN, HIGH);
+
+  pinMode(A0, INPUT);
+  //pinMode(A6, INPUT);
+  //pinMode(A7, INPUT);
+  
+  _admux = ADMUX;
+  _adcsrb = ADCSRB;
+  _adcsra= ADCSRA;
+  
+  delay(1000);
+
+  while(Serial.available()){
+    Serial.read();
+  }
+  Serial.println(F("\nLOGGER\n"));
+
+  Serial.print(F("FreeRam: "));
+  Serial.println(FreeRam());
+
+  // Read the first sample pin to init the ADC.
+  analogRead(PIN_LIST[0]);
+
+  // initialize file system.
+  if (!sd.begin(SD_CS_PIN, SPI_FULL_SPEED)) {
+    sd.initErrorPrint();
+
+    digitalWrite(ERROR_LED_PIN, HIGH);
+    digitalWrite(LED0_PIN, LOW);
+    
+    Serial.println(F("\nf - format card"));
+    
+    while(1) {
+      if(Serial.available())
+        if(tolower(Serial.read() == 'f'))
+          break;
+      if(digitalRead(BUTTON0_PIN))
+        break;
+    }
+    
+    digitalWrite(ERROR_LED_PIN, LOW);
+    format();
+  }
+}
+
+
+#define SAMPLES 16
+double analogRead(int pin, int samples){
+  int result = 0;
+  for(int i=0; i<samples; i++){
+    result += analogRead(pin);
+  }
+  return (double)(result / samples);
+}
+
+void loop(void) {
+  // discard any input
+  while (Serial.read() >= 0) {}
+
+  digitalWrite(LED0_PIN, HIGH);
+
+  /* NO MEMORY
+  Serial.println();
+  Serial.println(F("Type:"));
+  Serial.println(F("c - convert file to csv"));
+  Serial.println(F("d - dump data to Serial"));
+  Serial.println(F("e - overrun error details"));
+  Serial.println(F("r - record ADC data"));
+  Serial.println(F("f - format card"));
+  //Serial.println(F("x - delete card"));
+
+  Serial.println();
+  Serial.print(F("Input [V]: "));
+  //Serial.println((analogRead(A0, SAMPLES) * 5.0 )/ 1023.0);
+  //Serial.print(F("#INPUT:"));
+  // Serial.println(analogRead(A0, SAMPLES));
+  Serial.println();
+  */
+
+
+ 
+  //countdownInit = 10 * (pow(2, (0.01 * analogRead(DELAY_PIN, SAMPLES))) - 1);
+  //countdownInit = (analogRead(DELAY_PIN) / 10) * 10;
+  countdownInit = EEPROM.read(DELAY_ADDR);
+  Serial.print(F("Delay [s]: "));
+  Serial.println(countdownInit);//analogRead(DELAY_PIN));
+
+  //duration = analogRead(DURATION_PIN, SAMPLES); 
+  //duration = (pow(2, (0.01 * analogRead(DURATION_PIN, SAMPLES))) - 0);// * 1000;
+  duration = EEPROM.read(DURATION_ADDR);
+  Serial.print(F("Duration [s]: "));
+  Serial.println(duration);//analogRead(DURATION_PIN, SAMPLES));
+
+  while(!Serial.available()) {
+    if (interval.expired()) {
+      interval.set(1000);
+      if(countdown >= 0) {
+        led1 = !led1;
+        digitalWrite(LED1_PIN, led1);
+        //Serial.println(led1);
+        
+        countdown++;
+        
+        if(countdown >= countdownInit) {
+          digitalWrite(LED1_PIN, HIGH);
+          //Serial.println(F("#R"));
+          removeAllFiles();
+          logData();
+          //Serial.println(F("#S"));
+          digitalWrite(LED1_PIN, LOW);
+          countdown = -1;
+          buttonInterval.set(500);
+          while (Serial.read() >= 0) {}
+          break;
+        }
+      }
+    }
+    if(digitalRead(BUTTON0_PIN) && countdown > 0 && buttonInterval.expired()) {
+      countdown = -1;
+      led1 = false;
+      digitalWrite(LED1_PIN, led1);
+      Serial.println(F("\nStop countdown"));
+      buttonInterval.set(500);
+    }
+    
+    if(digitalRead(BUTTON0_PIN) && countdown < 0 && buttonInterval.expired()) {
+      countdown = 0;
+      Serial.print(F("\nStart countdown [s]: "));
+      Serial.println(countdownInit);
+      led1 = true;
+      digitalWrite(LED1_PIN, led1);
+      buttonInterval.set(500);
+      interval.set(1000);
+    }   
+  }
+  char c = tolower(Serial.read());
+  char c1;
+  // Read any extra Serial data.
+  //do {
+  //   delay(10);
+  //} while (Serial.read() >= 0);
+  
+  
+  if (c == 'c') {
+    Serial.println(F("#C"));
+    binaryToCsv();
+    Serial.println(F("#S"));
+  } else if (c == 'd') {
+    //Serial.println(F("#D"));
+    dumpData();
+    //Serial.println(F("#S"));
+  } else if (c == 'e') {
+    checkOverrun();
+  } else if (c == 'r') {
+    digitalWrite(LED1_PIN, HIGH);
+    //Serial.println(F("#R"));
+    removeAllFiles();
+    logData();
+    //pinMode(A6, INPUT);
+    //pinMode(A7, INPUT);
+    //Serial.println(F("#S"));
+    digitalWrite(LED1_PIN, LOW);
+  } else if (c == 'f') {
+    Serial.println(F("#F"));
+    digitalWrite(ERROR_LED_PIN, LOW);
+    format();
+    Serial.println(F("#S"));
+  } else if (c == 'k') {
+    delay(10);
+    char c1 = tolower(Serial.read());
+    EEPROM.update(DELAY_ADDR, c1);  
+  } else if (c == 'l') {
+    delay(10);
+    char c1 = tolower(Serial.read());
+    EEPROM.update(DURATION_ADDR, c1);  
+  } else if (c == '?') {
+    Serial.println(F("#LOGGER"));
+    Serial.print(F("#K="));
+    Serial.println(countdownInit);
+    Serial.print(F("#L="));
+    Serial.println(duration);
+    Serial.print(F("#INPUT="));
+    Serial.println(int(analogRead(A0, SAMPLES)));
+    //Serial.println();
+    /*} else if (c == 'x') {
+    Serial.println(F("#X"));
+    removeAllFiles();
+    Serial.println(F("#S"));*/
+  } else {
+    //Serial.println(c, hex);
+    //Serial.println(c);
+    Serial.println(F("Invalid entry"));
+  }
+
+  do {
+     delay(10);
+  } while (Serial.read() >= 0);
+
+}
+#else  // __AVR__
+#error This program is only for AVR.
+#endif  // __AVR__
